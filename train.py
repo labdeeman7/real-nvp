@@ -11,6 +11,9 @@ import torch.utils.data as data
 import torchvision
 import torchvision.transforms as transforms
 import util
+torch.backends.cudnn.benchmark = False
+torch.backends.cudnn.enabled=False
+
 
 from models import RealNVP, RealNVPLoss
 from tqdm import tqdm
@@ -30,15 +33,15 @@ def main(args):
         transforms.ToTensor()
     ])
 
-    trainset = torchvision.datasets.MNIST(root='data', train=True, download=True, transform=transform_train)
+    trainset = torchvision.datasets.CIFAR10(root='data', train=True, download=True, transform=transform_train)
     trainloader = data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
 
-    testset = torchvision.datasets.MNIST(root='data', train=False, download=True, transform=transform_test)
+    testset = torchvision.datasets.CIFAR10(root='data', train=False, download=True, transform=transform_test)
     testloader = data.DataLoader(testset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
 
     # Model
     print('Building model..')
-    net = RealNVP(num_scales=2, in_channels=1, mid_channels=16, num_blocks=4)
+    net = RealNVP(num_scales=2, in_channels=3, mid_channels=16, num_blocks=4)
     net = net.to(device)
     if device == 'cuda':
         net = torch.nn.DataParallel(net, args.gpu_ids)

@@ -36,7 +36,7 @@ class CouplingLayer(nn.Module):
                              double_after_norm=(self.mask_type == MaskType.CHECKERBOARD))
 
         # Learnable scale for s
-        self.rescale = nn.utils.weight_norm(Rescale(in_channels))
+        self.rescale = nn.utils.weight_norm(Rescale(in_channels)) #** dont understand
 
     def forward(self, x, sldj=None, reverse=True):
         if self.mask_type == MaskType.CHECKERBOARD:
