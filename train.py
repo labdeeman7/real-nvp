@@ -49,7 +49,7 @@ def main(args):
 
     # Model
     print('Building model..')
-    net = RealNVP(num_scales=2, in_channels=no_of_channels, mid_channels=16, num_blocks=8)
+    net = RealNVP(num_scales=2, in_channels=no_of_channels, mid_channels=8, num_blocks=4)
     # net = RealNVP(num_scales=2, in_channels=no_of_channels, mid_channels=1, num_blocks=1)
     net = net.to(device)
     if device == 'cuda':
