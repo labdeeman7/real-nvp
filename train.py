@@ -23,7 +23,6 @@ from tqdm import tqdm
 def main(args):
     device = 'cuda' if torch.cuda.is_available() and len(args.gpu_ids) > 0 else 'cpu'
     start_epoch = 0
-    loss_arr = [] #tuple of loss, bpd
 
     # Note: No normalization applied, since RealNVP expects inputs in (0, 1).
     transform_train = transforms.Compose([
@@ -65,7 +64,9 @@ def main(args):
         checkpoint = torch.load('ckpts/best.pth.tar')
         net.load_state_dict(checkpoint['net'])
         global best_loss
+        global loss_arr
         best_loss = checkpoint['test_loss']
+        loss_arr = checkpoint['loss_arr']
         start_epoch = checkpoint['epoch']
 
     loss_fn = RealNVPLoss()
@@ -74,8 +75,7 @@ def main(args):
 
     for epoch in range(start_epoch, start_epoch + args.num_epochs):
         train(epoch, net, trainloader, device, optimizer, loss_fn, args.max_grad_norm)
-        loss_values = test(epoch, net, testloader, device, loss_fn, args.num_samples, no_of_channels)
-        loss_arr.append(loss_values)
+        test(epoch, net, testloader, device, loss_fn, args.num_samples, no_of_channels)
 
     #store loss and bpd values
     with open(f'samples/loss_arr.npy', 'wb') as f:
@@ -142,6 +142,7 @@ def test(epoch, net, testloader, device, loss_fn, num_samples, no_of_channels):
             'net': net.state_dict(),
             'test_loss': loss_meter.avg,
             'epoch': epoch,
+            'loss_arr': loss_arr,
         }
         os.makedirs('ckpts', exist_ok=True)
         torch.save(state, 'ckpts/best.pth.tar')
@@ -155,7 +156,7 @@ def test(epoch, net, testloader, device, loss_fn, num_samples, no_of_channels):
     torchvision.utils.save_image(images_concat, 'samples/epoch_{}.png'.format(epoch))
     torchvision.utils.save_image(images[0], 'samples/epoch_{}_specific.png'.format(epoch))
 
-    return (loss_meter.avg, util.bits_per_dim(x, loss_meter.avg))
+    loss_arr.append((loss_meter.avg, util.bits_per_dim(x, loss_meter.avg))) 
 
 
 if __name__ == '__main__':
@@ -174,5 +175,6 @@ if __name__ == '__main__':
     parser.add_argument('--weight_decay', default=5e-5, type=float,
                         help='L2 regularization (only applied to the weight norm scale factors)')
 
-    best_loss = 10000
+    best_loss = 100000
+    loss_arr = [] #tuple of loss, bpd
     main(parser.parse_args())
