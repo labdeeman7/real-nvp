@@ -6,6 +6,7 @@ from models.real_nvp.coupling_layer import CouplingLayer, MaskType
 from util import squeeze_2x2
 
 
+
 class RealNVP(nn.Module):
     """RealNVP Model
 
@@ -17,7 +18,7 @@ class RealNVP(nn.Module):
     Args:
         num_scales (int): Number of scales in the RealNVP model.
         in_channels (int): Number of channels in the input.
-        mid_channels (int): Number of channels in the intermediate layers.
+          (int): Number of channels in the intermediate layers.
         num_blocks (int): Number of residual blocks in the s and t network of
         `Coupling` layers.
     """
@@ -27,17 +28,18 @@ class RealNVP(nn.Module):
         self.register_buffer('data_constraint', torch.tensor([0.9], dtype=torch.float32))
 
         self.flows = _RealNVP(0, num_scales, in_channels, mid_channels, num_blocks)
+        # scale_idx, num_scales, in_channels, mid_channels, num_blocks
 
     def forward(self, x, reverse=False):
-        sldj = None
-        if not reverse:
+        sldj = None #*what is sldj
+        if not reverse: #reverse
             # Expect inputs in [0, 1]
             if x.min() < 0 or x.max() > 1:
                 raise ValueError('Expected x in [0, 1], got x with min/max {}/{}'
                                  .format(x.min(), x.max()))
 
             # De-quantize and convert to logits
-            x, sldj = self._pre_process(x)
+            x, sldj = self._pre_process(x) #* sldj pre_process
 
         x, sldj = self.flows(x, sldj, reverse)
 
@@ -86,7 +88,7 @@ class _RealNVP(nn.Module):
     def __init__(self, scale_idx, num_scales, in_channels, mid_channels, num_blocks):
         super(_RealNVP, self).__init__()
 
-        self.is_last_block = scale_idx == num_scales - 1
+        self.is_last_block = scale_idx == num_scales - 1 #* maybe for the stuff that had to do with no squeezing or scales in the last block?
 
         self.in_couplings = nn.ModuleList([
             CouplingLayer(in_channels, mid_channels, num_blocks, MaskType.CHECKERBOARD, reverse_mask=False),

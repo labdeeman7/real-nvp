@@ -4,6 +4,7 @@ Train script adapted from: https://github.com/kuangliu/pytorch-cifar/
 """
 import argparse
 import os
+import numpy as np
 import torch
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
@@ -22,6 +23,7 @@ from tqdm import tqdm
 def main(args):
     device = 'cuda' if torch.cuda.is_available() and len(args.gpu_ids) > 0 else 'cpu'
     start_epoch = 0
+    loss_arr = [] #tuple of loss, bpd
 
     # Note: No normalization applied, since RealNVP expects inputs in (0, 1).
     transform_train = transforms.Compose([
@@ -72,8 +74,12 @@ def main(args):
 
     for epoch in range(start_epoch, start_epoch + args.num_epochs):
         train(epoch, net, trainloader, device, optimizer, loss_fn, args.max_grad_norm)
-        test(epoch, net, testloader, device, loss_fn, args.num_samples, no_of_channels)
+        loss_values = test(epoch, net, testloader, device, loss_fn, args.num_samples, no_of_channels)
+        loss_arr.append(loss_values)
 
+    #store loss and bpd values
+    with open(f'samples/loss_arr.npy', 'wb') as f:
+        np.save(f, loss_arr)
 
 def train(epoch, net, trainloader, device, optimizer, loss_fn, max_grad_norm):
     print('\nEpoch: %d' % epoch)
@@ -128,6 +134,7 @@ def test(epoch, net, testloader, device, loss_fn, num_samples, no_of_channels):
     # Save checkpoint
     print("loss_meter.avg", loss_meter.avg)
     print("best_loss", best_loss)
+    
 
     if loss_meter.avg < best_loss:
         print('Saving...')
@@ -147,6 +154,8 @@ def test(epoch, net, testloader, device, loss_fn, num_samples, no_of_channels):
     images_concat = torchvision.utils.make_grid(images, nrow=int(num_samples ** 0.5), padding=2, pad_value=255)
     torchvision.utils.save_image(images_concat, 'samples/epoch_{}.png'.format(epoch))
     torchvision.utils.save_image(images[0], 'samples/epoch_{}_specific.png'.format(epoch))
+
+    return (loss_meter.avg, util.bits_per_dim(x, loss_meter.avg))
 
 
 if __name__ == '__main__':
