@@ -28,7 +28,9 @@ class CouplingLayer(nn.Module):
         self.mask_type = mask_type
         self.reverse_mask = reverse_mask
 
-        # Build scale and translate network
+        # Build scale and translate network 
+        #* when channel wise, divide by 2., both s and t using one network
+        #* what is double after norm?
         if self.mask_type == MaskType.CHANNEL_WISE:
             in_channels //= 2
         self.st_net = ResNet(in_channels, mid_channels, 2 * in_channels,
@@ -37,6 +39,7 @@ class CouplingLayer(nn.Module):
 
         # Learnable scale for s
         self.rescale = nn.utils.weight_norm(Rescale(in_channels)) #** dont understand
+        #** per channel scalling, a value for each channel to scale the weights for s.  
 
     def forward(self, x, sldj=None, reverse=True):
         if self.mask_type == MaskType.CHECKERBOARD:
@@ -62,7 +65,7 @@ class CouplingLayer(nn.Module):
                 x = (x + t) * exp_s
 
                 # Add log-determinant of the Jacobian
-                sldj += s.view(s.size(0), -1).sum(-1)
+                sldj += s.view(s.size(0), -1).sum(-1) #* ldj is the sum log determinant of jacobian
         else:
             # Channel-wise mask
             if self.reverse_mask:

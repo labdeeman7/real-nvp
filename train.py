@@ -50,8 +50,8 @@ def main(args):
 
     # Model
     print('Building model..')
-    net = RealNVP(num_scales=2, in_channels=no_of_channels, mid_channels=8, num_blocks=4)
-    # net = RealNVP(num_scales=2, in_channels=no_of_channels, mid_channels=1, num_blocks=1)
+    net = RealNVP(num_scales=2, in_channels=no_of_channels, mid_channels=64, num_blocks=8)
+    # net = RealNVP(num_scales=2, in_channels=no_of_channels, mid_channels=8, num_blocks=4)
     net = net.to(device)
     if device == 'cuda':
         net = torch.nn.DataParallel(net, args.gpu_ids)
@@ -64,9 +64,11 @@ def main(args):
         checkpoint = torch.load('ckpts/best.pth.tar')
         net.load_state_dict(checkpoint['net'])
         global best_loss
-        global loss_arr
+        global loss_arr_test
+        global loss_arr_train
         best_loss = checkpoint['test_loss']
-        loss_arr = checkpoint['loss_arr']
+        loss_arr_test = checkpoint['loss_arr_test']
+        loss_arr_train = checkpoint['loss_arr_train']
         start_epoch = checkpoint['epoch']
 
     loss_fn = RealNVPLoss()
@@ -78,8 +80,11 @@ def main(args):
         test(epoch, net, testloader, device, loss_fn, args.num_samples, no_of_channels)
 
     #store loss and bpd values
-    with open(f'samples/loss_arr.npy', 'wb') as f:
-        np.save(f, loss_arr)
+    with open(f'samples/loss_arr_test.npy', 'wb') as f:
+        np.save(f, loss_arr_test)
+    with open(f'samples/loss_arr_train.npy', 'wb') as f:
+        np.save(f, loss_arr_train)
+
 
 def train(epoch, net, trainloader, device, optimizer, loss_fn, max_grad_norm):
     print('\nEpoch: %d' % epoch)
@@ -99,6 +104,8 @@ def train(epoch, net, trainloader, device, optimizer, loss_fn, max_grad_norm):
             progress_bar.set_postfix(loss=loss_meter.avg,
                                      bpd=util.bits_per_dim(x, loss_meter.avg))
             progress_bar.update(x.size(0))
+        
+        loss_arr_train.append((loss_meter.avg, util.bits_per_dim(x, loss_meter.avg))) 
 
 
 def sample(net, batch_size, device, no_of_channels):
@@ -135,20 +142,22 @@ def test(epoch, net, testloader, device, loss_fn, num_samples, no_of_channels):
     print("loss_meter.avg", loss_meter.avg)
     print("best_loss", best_loss)
     
+    state = {
+        'net': net.state_dict(),
+        'test_loss': loss_meter.avg,
+        'epoch': epoch,
+        'loss_arr_test': loss_arr_test,
+        'loss_arr_train': loss_arr_train
+    }
+    os.makedirs('ckpts', exist_ok=True)
+    torch.save(state, f'ckpts/epoch_{epoch}.pth.tar')
 
     if loss_meter.avg < best_loss:
-        print('Saving...')
-        state = {
-            'net': net.state_dict(),
-            'test_loss': loss_meter.avg,
-            'epoch': epoch,
-            'loss_arr': loss_arr,
-        }
+        print('Saving best...')
         os.makedirs('ckpts', exist_ok=True)
         torch.save(state, 'ckpts/best.pth.tar')
         best_loss = loss_meter.avg
-        
-
+ 
     # Save samples and data
     images = sample(net, num_samples, device, no_of_channels)
     os.makedirs('samples', exist_ok=True)
@@ -156,7 +165,7 @@ def test(epoch, net, testloader, device, loss_fn, num_samples, no_of_channels):
     torchvision.utils.save_image(images_concat, 'samples/epoch_{}.png'.format(epoch))
     torchvision.utils.save_image(images[0], 'samples/epoch_{}_specific.png'.format(epoch))
 
-    loss_arr.append((loss_meter.avg, util.bits_per_dim(x, loss_meter.avg))) 
+    loss_arr_test.append((loss_meter.avg, util.bits_per_dim(x, loss_meter.avg))) 
 
 
 if __name__ == '__main__':
@@ -176,5 +185,6 @@ if __name__ == '__main__':
                         help='L2 regularization (only applied to the weight norm scale factors)')
 
     best_loss = 100000
-    loss_arr = [] #tuple of loss, bpd
+    loss_arr_test = [] #tuple of loss, bpd for test
+    loss_arr_train = [] #tuple of loss, bpd for train
     main(parser.parse_args())

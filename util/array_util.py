@@ -20,6 +20,7 @@ def squeeze_2x2(x, reverse=False, alt_order=False):
     """
     block_size = 2
     if alt_order:
+        #*what is alternate ordering?
         n, c, h, w = x.size()
 
         if reverse:
