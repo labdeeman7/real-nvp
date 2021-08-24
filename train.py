@@ -24,22 +24,30 @@ def main(args):
     device = 'cuda' if torch.cuda.is_available() and len(args.gpu_ids) > 0 else 'cpu'
     start_epoch = 0
 
-    # Note: No normalization applied, since RealNVP expects inputs in (0, 1).
-    transform_train = transforms.Compose([
-        transforms.RandomHorizontalFlip(),
-        transforms.ToTensor()
-    ])
-
-    transform_test = transforms.Compose([
-        transforms.ToTensor()
-    ])
 
     if args.dataset == "MNIST": 
+        # Note: No normalization applied, since RealNVP expects inputs in (0, 1).
+        transform_train = transforms.Compose([
+            transforms.ToTensor()
+        ])
+
+        transform_test = transforms.Compose([
+            transforms.ToTensor()
+        ])
         no_of_channels = 1
         trainset = torchvision.datasets.MNIST(root='data', train=True, download=True, transform=transform_train)
         testset = torchvision.datasets.MNIST(root='data', train=False, download=True, transform=transform_test)
     elif args.dataset == "CIFAR":
         no_of_channels = 3
+        # Note: No normalization applied, since RealNVP expects inputs in (0, 1).
+        transform_train = transforms.Compose([
+            transforms.RandomHorizontalFlip(),
+            transforms.ToTensor()
+        ])
+
+        transform_test = transforms.Compose([
+            transforms.ToTensor()
+        ])
         trainset = torchvision.datasets.CIFAR10(root='data', train=True, download=True, transform=transform_train)
         testset = torchvision.datasets.CIFAR10(root='data', train=False, download=True, transform=transform_test)
     else:
