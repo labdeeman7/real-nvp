@@ -59,6 +59,7 @@ def main(args):
     # Model
     print('Building model..')
     net = RealNVP(num_scales=2, in_channels=no_of_channels, mid_channels=64, num_blocks=8)
+    # net = RealNVP(num_scales=2, in_channels=no_of_channels, mid_channels=32, num_blocks=4)
     # net = RealNVP(num_scales=2, in_channels=no_of_channels, mid_channels=8, num_blocks=4)
     net = net.to(device)
     if device == 'cuda':
@@ -139,7 +140,7 @@ def test(epoch, net, testloader, device, loss_fn, num_samples, no_of_channels):
         with tqdm(total=len(testloader.dataset)) as progress_bar:
             for x, _ in testloader:
                 x = x.to(device)
-                z, sldj = net(x, reverse=False)
+                z, sldj = net(x, reverse=False) #ohh that is why the equation works, the directions are reversed. 
                 loss = loss_fn(z, sldj)
                 loss_meter.update(loss.item(), x.size(0))
                 progress_bar.set_postfix(loss=loss_meter.avg,

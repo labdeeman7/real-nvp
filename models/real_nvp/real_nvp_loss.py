@@ -24,3 +24,5 @@ class RealNVPLoss(nn.Module):
         nll = -ll.mean()
 
         return nll
+
+#Where is the batch normalization cost?

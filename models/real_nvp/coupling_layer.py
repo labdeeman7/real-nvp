@@ -30,7 +30,7 @@ class CouplingLayer(nn.Module):
 
         # Build scale and translate network 
         #* when channel wise, divide by 2., both s and t using one network
-        #* what is double after norm?
+        #* what is double after norm? occurs only for checkerboard masking. 
         if self.mask_type == MaskType.CHANNEL_WISE:
             in_channels //= 2
         self.st_net = ResNet(in_channels, mid_channels, 2 * in_channels,
@@ -44,32 +44,35 @@ class CouplingLayer(nn.Module):
     def forward(self, x, sldj=None, reverse=True):
         if self.mask_type == MaskType.CHECKERBOARD:
             # Checkerboard mask
-            b = checkerboard_mask(x.size(2), x.size(3), self.reverse_mask, device=x.device)
+            b = checkerboard_mask(x.size(2), x.size(3), self.reverse_mask, device=x.device) #1 are the x_1 and 0 are x_2.  
             x_b = x * b
-            st = self.st_net(x_b)
+            st = self.st_net(x_b) #st 2 times the dimension of x since x_b and x have same dimensions. 
             s, t = st.chunk(2, dim=1)
             s = self.rescale(torch.tanh(s))
-            s = s * (1 - b)
+            s = s * (1 - b) #multipy by opposite of the mask to be used to multiply x that needs to change. 
             t = t * (1 - b)
 
-            # Scale and translate
+            # Scale and translate 
+            #** Isnt this wrong?
             if reverse:
                 inv_exp_s = s.mul(-1).exp()
                 if torch.isnan(inv_exp_s).any():
                     raise RuntimeError('Scale factor has NaN entries')
                 x = x * inv_exp_s - t
+                # x = (x - t) * inv_exp_s
             else:
                 exp_s = s.exp()
                 if torch.isnan(exp_s).any():
                     raise RuntimeError('Scale factor has NaN entries')
                 x = (x + t) * exp_s
+                # x = (x * exp_s) + t
 
                 # Add log-determinant of the Jacobian
                 sldj += s.view(s.size(0), -1).sum(-1) #* ldj is the sum log determinant of jacobian
         else:
             # Channel-wise mask
             if self.reverse_mask:
-                x_id, x_change = x.chunk(2, dim=1)
+                x_id, x_change = x.chunk(2, dim=1) #along the channels
             else:
                 x_change, x_id = x.chunk(2, dim=1)
 
@@ -83,11 +86,13 @@ class CouplingLayer(nn.Module):
                 if torch.isnan(inv_exp_s).any():
                     raise RuntimeError('Scale factor has NaN entries')
                 x_change = x_change * inv_exp_s - t
+                # x_change = (x_change - t) * inv_exp_s 
             else:
                 exp_s = s.exp()
                 if torch.isnan(exp_s).any():
                     raise RuntimeError('Scale factor has NaN entries')
                 x_change = (x_change + t) * exp_s
+                # x_change = (x_change  * exp_s) + t
 
                 # Add log-determinant of the Jacobian
                 sldj += s.view(s.size(0), -1).sum(-1)
